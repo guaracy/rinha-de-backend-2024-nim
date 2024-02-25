@@ -3,8 +3,8 @@ version: "3.5"
 services:
 
   api01: &api
-    #image: zanfranceschi/rinha-2024q1-crebito
-    build: .
+    image: docker.io/guaracybm/rinha-2024-01
+    #build: .
     environment:
       DB_HOST: localhost
       PORT: 3000
@@ -20,9 +20,9 @@ services:
   api02:
     <<: *api
     environment:
-      DB_HOST: localhost 
+      DB_HOST: localhost
       PORT: 3001
-  
+
   nginx:
     image: nginx:latest
     command: ["nginx", "-g", "daemon off;"]
@@ -36,7 +36,7 @@ services:
       nofile:
         soft: 1000000
         hard: 1000000
-    network_mode: host    
+    network_mode: host
     deploy:
       resources:
         limits:
@@ -60,4 +60,3 @@ services:
         limits:
           cpus: "0.35" # 0.25
           memory: "180MB" # 140
-        

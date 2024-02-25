@@ -16,6 +16,8 @@ CREATE UNLOGGED TABLE transacoes (
 		FOREIGN KEY (cliente_id) REFERENCES clientes(id)
 );
 
+CREATE INDEX idx_realizada ON transacoes (realizada_em DESC);
+
 DO $$
 BEGIN
 	INSERT INTO clientes (nome, limite)

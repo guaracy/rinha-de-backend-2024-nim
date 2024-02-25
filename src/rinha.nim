@@ -1,14 +1,24 @@
+## Api para a Rinha de Backend - https://github.com/zanfranceschi/rinha-de-backend-2024-q1
+##
+
 import std/[strutils, sequtils, times, os]
 import mummy, mummy/routers, waterpark/postgres, jsony
-#####################################################################################
+
 ## DATA DIVISION
-#####################################################################################
-## LINKAGE SECTION
+
+#------------------------------------------------------------------------------------
+# DATA DIVISION
+#------------------------------------------------------------------------------------
+# LINKAGE SECTION
+
 type Bofh = object
+    ## apenas uma brincadeira em caso de erro
     msg : string
     workaround : string
+    
 type Retorno = object
-    retorno : int
+    ## status é o código http e msg o conteúdo do corpo
+    status : int
     msg : string    
 type Transacao = object
     valor : int64
@@ -29,41 +39,41 @@ type Transacoes = object
 type Extrato = object
    saldo : Saldo
    ultimas_transacoes : seq[Transacoes]
-#####################################################################################
-## WORKING-STORAGE SECTION
+#------------------------------------------------------------------------------------
+# WORKING-STORAGE SECTION
 const htmlCT = "application/json; charset=utf-8"
 let port = parseInt(getEnv("PORT","9999"))
 let host = getEnv("DB_HOST","localhost")
+#let host = "/var/run/postgresql" #getEnv("DB_HOST","localhost") /var/run/postgresql/.s.PGSQL.5432
 let dbPass = getEnv("POSTGRES_PASSWORD","123")
 let dbUser = getEnv("POSTGRES_USER","admin")
 let dbDatabase = getEnv("POSTGRES_DB","rinha")
 var pg : PostgresPool
-#####################################################################################
+#------------------------------------------------------------------------------------
 # PROCEDURE DIVISION
-#####################################################################################
-## Formata erro (application/json)
+#------------------------------------------------------------------------------------
+#  Formata erro (application/json)
 proc erro(msg:string):string =
+  ## retorna uma mensagem de erro engraçadinha
   var b:Bofh
-  b.msg=msg & "!"
-  b.workaround="Call 966666666 - BOFH"
+  b.msg = msg & "!"
+  b.workaround = "Call 966666666 - BOFH"
   result = b.toJson
-#####################################################################################
-## 5 tentativas para conectar com a base de dados
+#------------------------------------------------------------------------------------
+# 5 tentativas para conectar com a base de dados
 proc tryConnectDB =
   var tentativas = 0
   while tentativas < 5:
-    echo port," conectando BD - try ",tentativas
     try:
-      pg = newPostgresPool(1, host, dbUser, dbPass, dbDatabase)
-      echo port," Conectado!"
+      pg = newPostgresPool(2, host, dbUser, dbPass, dbDatabase)
       return
     except:
       sleep(2000)
       inc(tentativas)
   echo "** ERRO NA CONEXÃO COM POSTGRESQL **"
   quit(2)
-#####################################################################################
-## Processa extratos
+#------------------------------------------------------------------------------------
+# Processa extratos
 proc extratoHandler(request: Request) =
   var 
     headers: HttpHeaders
@@ -86,18 +96,18 @@ proc extratoHandler(request: Request) =
         t.descricao = linhas[2]
         t.realizada_em = linhas[3]
         e.ultimas_transacoes.add(t)
-    when not defined(release):    
-      echo id,"-S: " ,e.saldo.toJson()
+    #when not defined(release):    
+    #  echo id,"-S: " ,e.saldo.toJson()
     request.respond(200, headers, e.toJson)
-#####################################################################################
-## Processa transações
+#------------------------------------------------------------------------------------
+# Processa transações
 proc movimentacaoConta(id:int,t:Transacao):Retorno =
   pg.withConnection conn:
     conn.exec(sql"START TRANSACTION")
     let linha = conn.getRow(sql"select limite, saldo from clientes where id=? for update",id)
     if allIt(linha, it == ""):
       conn.exec(sql"ROLLBACK")
-      result.retorno = 404
+      result.status = 404
     else:
       var r : ResTransacao
       r.limite = linha[0].parseInt
@@ -108,16 +118,16 @@ proc movimentacaoConta(id:int,t:Transacao):Retorno =
         r.saldo = r.saldo - t.valor
       if (r.limite + r.saldo) < 0:
         conn.exec(sql"ROLLBACK")
-        result.retorno = 422
+        result.status = 422
       else:
-        result.retorno = 200
+        result.status = 200
         conn.exec(sql"update clientes set saldo=? where id=?",r.saldo, id)
         conn.exec(sql"COMMIT")
         conn.exec(sql"insert into transacoes (cliente_id,valor,tipo,descricao) values (?,?,?,?)",id,t.valor,t.tipo,t.descricao)
         when not defined(release):    
           echo id,"-T:",t," R:",r
         result.msg=r.toJson
-## processa as transações enviadas pela requisição
+# processa as transações enviadas pela requisição
 proc transacoesHandler(request: Request) =
   var 
     headers: HttpHeaders
@@ -125,7 +135,6 @@ proc transacoesHandler(request: Request) =
   headers["Content-Type"] = htmlCT
   var 
     v : Transacao
-    s = request.body
   try:
     v = request.body.fromJson(Transacao)
     if v.descricao=="" or v.descricao.len > 10 or v.valor < 1 or not anyIt("cd", it == v.tipo) or id > 5:
@@ -134,19 +143,21 @@ proc transacoesHandler(request: Request) =
     var r = movimentacaoConta(id,v)
     when not defined(release):    
       echo id,":",request.body," : ",r.msg
-    request.respond(r.retorno, headers, r.msg)
+    request.respond(r.status, headers, r.msg)
   except:
-    echo "ERROR : CLI[",id,"] ",request.body
+    when not defined(release):    
+      echo "ERROR : CLI[",id,"] ",request.body
     request.respond(422, headers, erro("JSON incorreto"))  
-#####################################################################################
-## Main
+    
+#------------------------------------------------------------------------------------
+# Main
 var router: Router
-## Rotas
+# Rotas
 router.get("/clientes/@id/extrato", extratoHandler)
 router.post("/clientes/@id/transacoes", transacoesHandler)
-## Start
+# Start
 let server = newServer(router)
 tryConnectDB()
-echo "Serving on http://localhost:",port
+echo "👑 Serving on http://localhost:",port
 server.serve(Port(port))
-## EOF
+# EOF

@@ -4,7 +4,7 @@ FROM nimlang/nim:2.0.2 AS build-env
 # Install PostgreSQL client library
 RUN apt-get update && apt-get install -y libpq-dev
 
-# Set the working directory
+# Set the working directory  
 WORKDIR /app
 
 COPY rinha.nimble rinha.nimble
@@ -16,9 +16,9 @@ RUN nimble install -y -d
 COPY . .
 
 # Compile the Nim application
-#RUN nimble compile --opt:size --mm:orc --threads:on -d:release src/rinha.nim -o:/app/rinha
-RUN nimble compile --opt:speed --mm:orc --threads:on -d:release src/rinha.nim -o:/app/rinha
-#RUN strip /app/rinha    
+RUN nimble compile --opt:speed -d:release src/rinha.nim -o:/app/rinha  
+
+RUN strip -v /app/rinha    
 
 EXPOSE 3000
 

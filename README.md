@@ -12,19 +12,19 @@ Submissão feita com:
 
 - `nginx` como load balancer
 - `postgres` como banco de dados
-- [Nim](https://nim-lang.org/) para api com as libs `compojure` e `next.jdbc`
+- [Nim](https://nim-lang.org/) para api com as libs :
   - [mummy](https://github.com/guzba/mummy) para o servidor
   - [waterpark](https://github.com/guzba/waterpark) para pool de conexões com o BD
   - [jsony](https://github.com/treeform/jsony) para serialização/deserialização de JSON
-- [repositório da api](https://github.com/guaracy)
+- [repositório da api](https://github.com/guaracy/rinha-de-backend-2024-nim)
 
-[@zanfranceschi](https://twitter.com/guaracybm) @ twitter
+[@guaracybm](https://twitter.com/guaracybm) @ twitter
 
 ## Considerações
 
-- A utilização de **Nim** é para sair um pouco do convencional. Uma linguagem compilada com sintaxe semelhante ao Python.
+- A utilização de **Nim** é para sair um pouco do convencional . Uma linguagem compilada com sintaxe semelhante ao Python, pouco utilizada mas que pode ser bem interessante para diversas tarefas. 
 
-- A escolha por **Mummy** se deve a facilidade além de ser relativamente rápido. Não se preocupar com  `{.async.}`, `Future[]` e `await` é muito legal para quem não gosta de se preocupar com as [cores das funções](https://journal.stuffwithstuff.com/2015/02/01/what-color-is-your-function/). 
+- A escolha por **Mummy** se deve a facilidade além de ser relativamente rápido. Não se preocupar com  `{.async.}`, `Future[]` e `await` é muito legal para quem não gosta de lidar com as [cores das funções](https://journal.stuffwithstuff.com/2015/02/01/what-color-is-your-function/). 
 
 - Da mesma forma, **Waterpark** fornece facilidades para trabalhar com um pool de conexões com um BD (MySQL, PostgreSQL e SQlite).
 
@@ -32,30 +32,26 @@ Submissão feita com:
 
 ## Implementação
 
-Apesar de ter sido fornecido um exemplo, achei que tinha muita tabela para algo que apenas pretendia adicionar ou subtrair valores de uma determinada com e mostrar o saldo. O extrato mostra apenas os últimos 10 lançamentos.
+Apesar de ter sido fornecido um exemplo, achei que tinha muita tabela para algo que apenas pretendia adicionar ou subtrair valores de uma determinada conta e mostrar o saldo. O extrato mostra apenas os últimos 10 lançamentos.
 
 Também retirei todos os procedimentos armazenados no BD. Testar no programa é mais rápido do que enviar para o SGBD, processar e retornar um erro.
 
 Resolvi colocar o saldo juntamente com o limite na tabela de clientes e uma outra tabela para a movimentação (já teria os últimos 10 lançamentos).
 
-Considero que as regras para a movimentação estão meio confusas. Poderia retornar erro **422**. se a entrada tivesse um débito que fosse deixar o saldo inconsistente (abaixo do limite da conta) e **400** sempre que o JSON tivesse uma valor incorreto.
+Como o ID dos clientes eram de 1-5 (até pediram para não colocar 6 em alguma mensagem), executei o teste diretamente no programa. Evita uma leitura desnecessária no banco de dados.
 
-Ao executar os testes no Docker, provavelmente por restrições da rinha ou desconhecimento **meu** sobre algumas configurações, o programa se comportava melhor com apenas uma conexão (o que não invalida a utilização do waterpark).
+Considero que as regras para a movimentação estão meio confusas. Poderia retornar erro **422**. se a entrada tivesse um débito que fosse deixar o saldo inconsistente (abaixo do limite da conta) e **400** sempre que o JSON tivesse uma valor incorreto. Mas vamos seguir as regras (até porque ão passaria no teste)
+
+Como não tenho muita familiaridade com o PostrgreSQL, provavelmente as configurações do BD/Memória poderiam ser melhorados.
 
 ## Finalmentes
 
-- O código tem algumas brincadeiras. Não coloquei mais para não aumentar muito o tamanho. Por exemplo, uma configuração para que o programa compilado retornasse, caso o cliente não fosse encontrado, **200** para cancelar a rinha para sempre.
-
 - Para o problema de concorrência no saldo, utilizei `SELECT ... FOR UPDATE` com um `COMMIT` logo após a gravação do saldo para liberar nova leitura da linha. A movimentação e feita logo após, não se preocupando com a concorrência.
 
-- O programa tratou **61503** requisições e todas as respostas foram abaixo de 800ms. Alterando um pouco as configurações (memória e cpu), obtive os seguintes resultados (quanto mais rápido melhor mas, um usuário real não veria muita diferença entre 0,097s e 0,036s):
-  
-  - sem alterar as configurações, o tempo máximo para resposta foi de **97ms**(0,81%) e 64,2% foram completadas em até **5ms**.
-  
-  - tirando 20M dos aplicativos e colocando 40M para a base de dados o tempo máximo de resposta caiu para **43ms** (1,62%) e 63,39% foram completadas em até 5ms.
-  
-  - tirando 0.05 de CPU para os aplicativos e e colocando 0.1CPU na base de dados, o tempo máximo de resposta caiu para **36ms** (0,81%) e o percentual de requisições atendidas em até 5ms foi de 64,21%.
+- O programa tratou **61503** requisições e todas as respostas foram abaixo de 800ms. Pelos resultados que vi, acredito que a versão em nim não fica devendo muito para outras linguagens também compiladas. Lembrando que Nim utiliza GC e não é possível desabilitar pois a biblioteca mummy utliza GC.
 
-- Em vez de MVC e outras coisas parecidas, como o assunto me lembou bancos e, consequentemente COBOL, resolvi fazer um programa monolítico com DATA DIVISION, PROCEDURE DIVISION, etc.
+- Os resultados são de uma medição já que elas podem alterar entre uma execução e outra.
 
-- `docker-compose build` `docker-compose up` `docker-compose down` 
+- O código não segue nenhuma metodologia da moda. Algumas variáveis são de uma letra só oque não é uma prática muito legal (tirando `i`,`i`,`k` que é uma denominação comum para laços de quem está há um pouco mais de tempo na área) . Em vez de MVC e outras coisas parecidas, como o assunto me lembou bancos e, consequentemente `COBOL`, resolvi fazer um programa monolítico com `DATA DIVISION`, `PROCEDURE DIVISION`, etc.
+
+- `docker-compose up` `docker-compose down` 
